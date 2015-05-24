@@ -7,12 +7,12 @@ var hasOneOrMany = [];
 module.exports = (function (){
     'use strict';
 
-    function CountryModel () {
-        BaseModel.call(this, 'countries', belongsTo, hasOneOrMany);
+    function GeocodeModel () {
+        BaseModel.call(this, 'geocodes', belongsTo, hasOneOrMany);
     }
 
-    util.inherits(CountryModel, BaseModel);
+    util.inherits(GeocodeModel, BaseModel);
 
-    return new CountryModel ();
+    return new GeocodeModel ();
 
 })();

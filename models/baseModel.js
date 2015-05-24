@@ -1,43 +1,82 @@
 var Q = require('q');
 var pluralize = require('pluralize');
-var db = require('../bin/db');
+var db = require('../database/db');
 var _ = require('underscore');
 
-String.prototype.quotify = function() { //TODO probably this is not the best place for that particular function
-    return '\"' + this + '\"';
-};
+function quotify(str) {
+    if(typeof str !== 'string'){
+        return new Error('Only strings can by quotified!');
+    }
+
+    return '\"' + str + '\"';
+}
+
+function getOrderAndLimit(orderAndLimit){
+    var limit  = (orderAndLimit.page && orderAndLimit.perPage) ?
+        ' LIMIT ' + ((orderAndLimit.page-1) * orderAndLimit.perPage) + ', ' + orderAndLimit.perPage :
+        '';
+
+    var orderBy = orderAndLimit.orderBy ? ' ORDER BY ' + orderAndLimit.orderBy : '';
+
+    return orderBy + limit;
+}
+
+function joinKeyValue(obj, pairsJoin, pairsSeparator) {
+    pairsSeparator = pairsSeparator || ' = '
+    return _.map(obj, function (value, key) {
+
+        //In case we want something to be NOT equal to some particular value
+        if(key.indexOf('!') > -1){
+            key = key.replace('!', '');
+            pairsSeparator = pairsSeparator.replace('=', '!=');
+        }
+
+        value = (_.isString(value)) ? quotify(value) : value;
+
+        return key + pairsSeparator + value;
+
+    }).join(pairsJoin);
+}
+
+
+function getWhereClause (filter){
+    if(!filter){
+        return '';
+    }
+
+    return ' WHERE ' + joinKeyValue(filter, ' AND ');
+}
+
 
 module.exports = (function (){
     'use strict';
 
-    var baseModel = function(table, hasOne, hasMany) {
+    var baseModel = function(table, belongsTo, hasOneOrMany) {
         this.table = table;
 
         //how the id appears in foreign tables, for beers is beer_id
         this.externalID = pluralize(table, 1) + '_id';
 
-        this.hasOne = hasOne || [];
-        this.hasMany = hasMany || [];
-        this.forignModels = [];
-        this.loadForeign(this.hasOne, this.hasMany);
+        this.belongsTo = belongsTo || [];
+        this.hasOneOrMany = hasOneOrMany || [];
+        //this.loadForeign(this.belongsTo, this.hasOneOrMany);
     };
 
-    //TODO LIMIT and ORDER BY
-
     baseModel.prototype.get = function(id){
-        var query = 'SELECT * FROM ' + this.table + ' WHERE id =' + id;
+        var where = getWhereClause({id: id});
+        var query = 'SELECT * FROM ' + this.table + where + ';';
         var _this = this;
 
-        /*all foreigner tables 'hasOne' have to be first for key - value consistency
+        /*all foreigner tables 'belongsTo' have to be first for key - value consistency
         not very elegant but for now works TODO */
-        var has = this.hasOne.concat(this.hasMany);
+        var has = this.belongsTo.concat(this.hasOneOrMany);
 
         return db.getRow(query)
             .then(function(value){ //the initial row from the main table
 
                 if(!value) throw new Error ('No object with that id'); //No value was found
 
-                return _this.join(value)//joining all hasOne and hasMany objects
+                return _this.join(value)//joining all belongsTo and hasOneOrMany objects
                     .then(function(joined){
                         for (var i = 0, l = has.length; i < l; i++){
 
@@ -59,9 +98,27 @@ module.exports = (function (){
 
     };
 
-    //exp.: beerModel.getAll();
-    baseModel.prototype.getAll = function() {
-        var query = 'SELECT * FROM ' + this.table;
+    //use: beerModel.getAll();
+    baseModel.prototype.getAll = function (orderAndLimit) { //TODO
+        orderAndLimit = (orderAndLimit) ? getOrderAndLimit(orderAndLimit) : '';
+
+        var query = 'SELECT * FROM ' + this.table + orderAndLimit + ';';
+        this.count();
+        return db.makeQuery(query)
+            .fail(function (err) {
+                console.error(err);
+                return err;
+            });
+    };
+
+    //use: beerModel.getBy({country_id: 20, style_id = 5'});
+    baseModel.prototype.getBy = function(fieldsAndValues, orderAndLimit) {
+
+        orderAndLimit = (orderAndLimit) ? getOrderAndLimit(orderAndLimit) : '';
+
+        var where = getWhereClause(fieldsAndValues);
+
+        var query = 'SELECT * FROM ' + this.table + where + orderAndLimit + ';';
 
         return db.makeQuery(query)
             .fail(function (err) {
@@ -70,18 +127,16 @@ module.exports = (function (){
             });
     };
 
-    //exp.: beerModel.getBy({country_id: 20, style_id = 5'});
-    baseModel.prototype.getBy = function(fieldValue) {
+    /*
+        use: beerModel.getRandom(3, {style_id: 78, '!id': 4311})
+        gets 3 random beers with style_id = 78 and id not equal 4311
+    */
+    baseModel.prototype.getRandom = function(numOfRows, fieldsAndValues) {
+        var where = getWhereClause(fieldsAndValues);
 
-        var filter = _.map(fieldValue, function(value, key){
-
-            value = (_.isString(value)) ? value.quotify() : value;
-
-            return key + ' = ' + value;
-
-        }).join(' AND ');
-
-        var query = 'SELECT * FROM ' + this.table + ' WHERE ' + filter + ';';
+        var query = 'SELECT * FROM ' + this.table + ', (SELECT id AS sid FROM ' +
+            this.table + where + ' ORDER BY RAND( ) LIMIT ' +
+            numOfRows + ')tmp WHERE ' + this.table +'.id = tmp.sid;';
 
         return db.makeQuery(query)
             .fail(function (err) {
@@ -90,18 +145,39 @@ module.exports = (function (){
             });
     };
 
-    //exp.: beerModel.update(5920, {country_id: 20, style_id = 5'});
+    //use: beerModel.count('style_id', {country_id: 31});
+    baseModel.prototype.count = function (){
+        var args = Array.prototype.slice.call(arguments);
+        var field = '*';
+        var where = '';
+
+        //if a field is provided the unique items of this item are counted, otherwise all records
+        if(typeof args[0] === 'string'){
+            field = 'DISTINCT ' + args[0];
+        }
+
+        //if an object is provided with one of the two parameters the same is used for the where clause
+        if(typeof args[0] === 'object'){
+            where = getWhereClause(args[0]);
+        }else if(typeof args[1] === 'object') {
+            where = getWhereClause(args[1]);
+        }
+
+        var query = 'SELECT COUNT(' + field + ') AS count FROM ' + this.table + where + ';';
+
+        return db.getRow(query)
+            .fail(function (err) {
+                console.error(err);
+                return err;
+            });
+    };
+
+    //use: beerModel.update(5920, {country_id: 20, style_id: 5})
     baseModel.prototype.update = function(id, fieldValue) {
 
-        var newValues = _.map(fieldValue, function(value, key){
-
-            value = (_.isString(value)) ? value.quotify() : value;
-
-            return key + ' = ' + value;
-
-        }).join(', ');
-
-        var query = 'UPDATE ' + this.table + ' SET ' + newValues + ' WHERE id = ' + id;
+        var newValues = joinKeyValue(fieldValue, ', ');
+        var where = getWhereClause({id: id});
+        var query = 'UPDATE ' + this.table + ' SET ' + newValues + where + ';';
 
         return db.makeQuery(query)
             .then(function (result) {
@@ -119,13 +195,15 @@ module.exports = (function (){
 
     };
 
-    //exp.: beerModel.insert({name: 'Kamenitza', country_id: 31, brewery_id: 1428});
+    //use: beerModel.insert({name: 'Kamenitza', country_id: 31, brewery_id: 1428});
     baseModel.prototype.insert = function (fieldValue) {
+        if(_.isEmpty(fieldValue)) return new Error ('No data provided for the insert clause');
+
         var fields = _.keys(fieldValue);
         var values = _.values(fieldValue).map(function(value){
             if(!_.isString(value)) return value;
 
-            return value.quotify();
+            return quotify(value);
         });
 
         var query = 'INSERT INTO ' + this.table + ' (' + fields.join(', ') + ')' + ' VALUES ' + '(' + values.join(', ') + ');';
@@ -139,40 +217,44 @@ module.exports = (function (){
             });
     };
 
-    baseModel.prototype.loadForeign = function(hasOne, hasMany) {
 
-        //Зарежда моделите на таблиците от който търсим само един обект (e.g. beers has one brewery)
-        for (var i = 0, l = hasOne.length; i < l; i++){
-            var model = require('./' + hasOne[i] + 'Model');
-            this.forignModels.push({name: model, key: hasOne[i] + '_id'});
+    baseModel.prototype.loadForeign = function(belongsTo, hasOneOrMany) {
+        var foreignModels = [];
+        //Зарежда моделите на таблиците към който основния обект принадлежи (e.g. beers belongsTo brewery)
+        for (var i = 0, l = belongsTo.length; i < l; i++){
+            var model = require('./' + belongsTo[i] + 'Model');
+            foreignModels.push({name: model, key: belongsTo[i] + '_id'});
         }
 
         /*Зарежда моделите на таблиците който съдържат ид-то на главния обект, като външно такова
-        (e.g. beers may have many comments)*/
-        for (var j = 0, l = hasMany.length; j < l; j++){
-            var singular = pluralize(hasMany[j], 1)
-            var model = require('./' + singular + 'Model');
+        (e.g. beers may have zero, one or many comments)*/
+        for (var j = 0, l = hasOneOrMany.length; j < l; j++){
+            var singular = pluralize(hasOneOrMany[j], 1)
+            model = require('./' + singular + 'Model');
 
-            this.forignModels.push({name: model, key: 'id'});
+            foreignModels.push({name: model, key: 'id'});
         }
+        return foreignModels;
 
     };
 
     baseModel.prototype.join = function(value) {
+        var foreignModels  = this.loadForeign(this.belongsTo, this.hasOneOrMany);
         var _this = this;
-        return Q.all(this.forignModels.map(function(model) {
 
-            /*if the key is simply 'id', we have 'has many' relation,
+        return Q.all(foreignModels.map(function(model) {
+
+            /*if the key is simply 'id', we have 'hasOneOrMany' relation,
             in that case we are getting all rows with the main object id*/
             if (model.key === 'id'){
-                var filter = {}
+                var filter = {};
                 filter[_this.externalID] = value.id;
 
                 return model.name.getBy(filter);
 
-            //otherwise we have 'has one' relation
+            //otherwise we have 'belongsTo' relation
             }else{
-                return model.name.get(value[model.key]);
+                return model.name.getBy({id: value[model.key]});
             }
         })).spread(function () {
             return Array.prototype.slice.call(arguments);

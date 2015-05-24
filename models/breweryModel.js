@@ -1,12 +1,14 @@
 var util = require("util");
 var BaseModel = require("./baseModel");
-var hasOne = ['country'];
+
+var belongsTo = ['country'];
+var hasOneOrMany = ['geocodes', 'beers'];
 
 module.exports = (function (){
     'use strict';
 
     function BreweryModel () {
-        BaseModel.call(this, 'breweries', hasOne);
+        BaseModel.call(this, 'breweries', belongsTo, hasOneOrMany);
     }
 
     util.inherits(BreweryModel, BaseModel);
