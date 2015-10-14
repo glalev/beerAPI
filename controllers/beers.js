@@ -1,6 +1,8 @@
 var express = require('express');
 var _ = require('underscore');
-var beerModel = require('../models/beerModel');
+var baseModel = require("../models/baseModel");
+
+
 var Q = require('q');
 
 var beers = express.Router();
@@ -10,7 +12,7 @@ module.exports = (function (){
 
 
     beers.get('/', function (req, res){
-        beerModel.getAll({page:2, perPage:10}).then(function (all) {
+        beerModel.getAll().then(function (all) {
             res.send(all);
         });
     });
@@ -21,22 +23,18 @@ module.exports = (function (){
         });
     });
 
+    beers.get('/count', function (req, res){
+        beerModel.count('country_id as countries').then(function (count) {
+            res.send(count);
+        });
+    });
+
     beers.get('/:id', function (req, res){
-        beerModel.get(req.params.id)
+        baseModel.from('beers').get(req.params.id)
             .then(function (beer) {
-                //Q.all([
-                //    //TODO това с нулите ( || 0), го оставих в случай, че бирата няма стил или държава.
-                //    // Може би не е най-правилния подход, защото прави безмислена заяка до базата данни, но за сега го оставям така;
-                //    beerModel.getRandom(3, {style_id: (beer.style.id || 0), '!id': beer.id}),
-                //    beerModel.count({country_id: (beer.country.id || 0)})
-                //])
-                //    .spread(function(fromSameStyle, fromSameCountry){
-                //        beer.fromSameStyle = fromSameStyle;
-                //        beer.fromSameCountry = fromSameCountry;
-                //        res.send(beer);
-                //    });
                 res.send(beer);
             });
+
 
     });
 

@@ -4,17 +4,7 @@
  and the 'bin' directory is probably no the best to put the file */
 var mysql = require('mysql');
 var Q = require('q');
-
-
-//TODO this may go in some future config file
-var config = {
-    connectionLimit : 100, //TODO check significance of that
-    host     : 'localhost',
-    user     : 'cartman',
-    password : 'fuckingjews',
-    database : 'cs',
-    debug    :  false
-};
+var config = require('./config.json'); //TODO check significance of config.connectionLimit
 
 function DB () {
     this.pool = mysql.createPool(config);
@@ -41,7 +31,7 @@ DB.prototype.makeQuery = function (query, onlyFirstRow) {
                 connection.release();
             });
         }
-    })
+    });
     //returning the promise which shall be resolved or rejected
     return deferred.promise;
 };

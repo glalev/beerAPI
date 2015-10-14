@@ -1,0 +1,22 @@
+{
+    "beers": {
+        "belongsTo": ["brewery", "country", "category", "style"],
+        "hasOneOrMany": ["comments", "ratings"]
+    },
+    "breweries": {
+        "belongsTo": ["country"],
+        "hasOneOrMany": ["geocodes", "beers"]
+    },
+    "categories": {},
+    "comments": {
+        "belongsTo": ["user", "beer"],
+        "foreignFields": ["users.username"]
+    },
+    "countries": {},
+    "geocodes": {},
+    "ratings": {},
+    "styles": {},
+    "users": {
+        "hasOneOrMany": ["comments"]
+    }
+}

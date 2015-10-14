@@ -1,13 +1,12 @@
 var express = require('express');
-var breweryModel = require('../models/breweryModel');
-
+var baseModel = require('../models/baseModel');
 var breweries = express.Router();
 
 module.exports = (function (){
     'use strict';
 
     breweries.get('/:id', function (req, res){
-        breweryModel.get(req.params.id).then(function (brewery) {
+        baseModel.from('breweries').get(req.params.id).then(function (brewery) {
             res.send(brewery);
         });
     });
