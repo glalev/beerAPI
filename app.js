@@ -17,7 +17,7 @@ app.use(logger('dev'));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
-app.use(require('stylus').middleware(path.join(__dirname, 'public')));
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 /******CORS because of Chrome******/
@@ -63,12 +63,11 @@ app.use(function(err, req, res, next) {
 });
 
 var server = http.createServer(app);
-var port = process.env.OPENSHIFT_NODEJS_PORT || 8080;
 
-var ipaddress = process.env.OPENSHIFT_NODEJS_IP || "127.0.0.1";
+var server_port = process.env.OPENSHIFT_NODEJS_PORT || 8080;
+var server_ip_address = process.env.OPENSHIFT_NODEJS_IP || '127.0.0.1';
 
-server.listen( port, ipaddress, function() {
-  console.log((new Date()) + ' Server is listening on port 8080');
+server.listen(server_port, server_ip_address, function () {
+  console.log( "Listening on " + server_ip_address + ", server_port " + server_port);
 });
-
 //module.exports = app;
