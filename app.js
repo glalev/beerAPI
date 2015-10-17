@@ -8,7 +8,7 @@ var bodyParser = require('body-parser');
 //var controllers = require('./controllers/index');
 var beers = require('./controllers/beers');
 var breweries = require('./controllers/breweries');
-
+var http = require('http');
 var app = express();
 
 // uncomment after placing your favicon in /public
@@ -62,5 +62,13 @@ app.use(function(err, req, res, next) {
   });
 });
 
+var server = http.createServer(app);
+var port = process.env.OPENSHIFT_NODEJS_PORT || 8080;
 
-module.exports = app;
+var ipaddress = process.env.OPENSHIFT_NODEJS_IP || "127.0.0.1";
+
+server.listen( port, ipaddress, function() {
+  console.log((new Date()) + ' Server is listening on port 8080');
+});
+
+//module.exports = app;
