@@ -16,7 +16,9 @@ module.exports = (function (){
             res.send(all);
         });
     });
-
+    beers.get('/test', function (req, res){
+       res.send('It\'s alive!');
+    });
     beers.get('/bulgaria', function (req, res){
         beerModel.getBy({'country_id' : '31'}).then(function (beers) {
             res.send(beers);

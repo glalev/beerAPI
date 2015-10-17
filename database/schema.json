@@ -10,7 +10,7 @@
     "categories": {},
     "comments": {
         "belongsTo": ["user", "beer"],
-        "foreignFields": ["users.username"]
+        "foreignFields": ["users.username, users.picture AS userPicture"]
     },
     "countries": {},
     "geocodes": {},
