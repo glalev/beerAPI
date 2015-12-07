@@ -16,9 +16,22 @@ module.exports = (function (){
             res.send(all);
         });
     });
+
     beers.get('/test', function (req, res){
        res.send('It\'s alive!');
     });
+
+    beers.get('/search', function (req, res){
+        if(!req.query.q) return res.send('No query Provided');
+        var q = req.query.q;
+
+        baseModel.from('beers').search(q).then(function (result) {
+            res.send(result);
+        });
+
+    });
+
+
     beers.get('/bulgaria', function (req, res){
         beerModel.getBy({'country_id' : '31'}).then(function (beers) {
             res.send(beers);
@@ -32,12 +45,25 @@ module.exports = (function (){
     });
 
     beers.get('/:id', function (req, res){
+
         baseModel.from('beers').get(req.params.id)
             .then(function (beer) {
                 res.send(beer);
             });
+    });
 
+    beers.get('/:beer_id/comments/:id', function (req, res){
+        baseModel.from('comments').getBy({beer_id: req.params.beer_id, id: req.params.id})
+            .then(function (comment) {
+                res.send(comment);
+            });
+    });
 
+    beers.get('/:id/comments', function (req, res){
+        baseModel.from('beers').get(req.params.id)
+            .then(function (beer) {
+                res.send(beer.comments);
+            });
     });
 
     beers.post('/add', function (req, res){

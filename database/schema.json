@@ -1,7 +1,8 @@
 {
     "beers": {
         "belongsTo": ["brewery", "country", "category", "style"],
-        "hasOneOrMany": ["comments", "ratings"]
+        "hasOneOrMany": ["comments", "ratings"],
+        "searchable": ["name", "descript"]
     },
     "breweries": {
         "belongsTo": ["country"],

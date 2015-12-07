@@ -181,6 +181,21 @@ module.exports = (function () {
             }).join(', ');
 
             return  'INSERT INTO ' + table + ' (' + fields + ')' + ' VALUES ' + '(' + values + ');';
+        },
+        //SELECT * FROM  `beers`WHERE name LIKE '%amst%' OR descript LIKE  '%ds%'
+        search: function (config) {
+            var table = config.table;
+            var q = config.q;
+            var fields = config.fields;
+            //obj, pairsJoin, pairsSeparator, formatFunction
+            var where = ' WHERE ' + fields.map(function(field){
+                return field + ' LIKE "%' + q + '%"'
+            }).join(' OR ');
+
+           var selectFields = 'SELECT ' + getFields(table, '*') + ' FROM ' + table;
+
+           return selectFields + where;
+
         }
     }
 }());

@@ -8,7 +8,7 @@ var schema = require('../database/schema.json');
 var queryHelper = require('../helpers/query');
 
 module.exports = (function () {
-    var _table, _belongsTo, _hasOneOrMany, _foreignFields;
+    var _table, _belongsTo, _hasOneOrMany, _foreignFields, _searcharble;
 
     return {
         use: function (tableToUse) {
@@ -16,6 +16,7 @@ module.exports = (function () {
             _belongsTo = schema[_table].belongsTo || [];
             _hasOneOrMany = schema[_table].hasOneOrMany || [];
             _foreignFields = schema[_table].foreignFields || [];
+            _searcharble = schema[_table].searchable || [];
 
             return this;
         },
@@ -61,13 +62,13 @@ module.exports = (function () {
 
                         return _this.from(table).getBy(filter, null, firstRowOnly)
                     })).then(function (additionResult) {
-                        hasOrBelongs.forEach(function (value, index) {
-                            //if there is no foreign object an empty string is set
-                            result[value] = additionResult[index] || '';
-                            /*deleting foreign ids otherwise there is repetition,
-                             for instance we have brewery id in beer.brewery_id, and in brewery.id*/
-                            delete result[value + '_id'];
-                        });
+                            hasOrBelongs.forEach(function (value, index) {
+                                //if there is no foreign object an empty string is set
+                                result[value] = additionResult[index] || '';
+                                /*deleting foreign ids otherwise there is repetition,
+                                 for instance we have brewery id in beer.brewery_id, and in brewery.id*/
+                                delete result[value + '_id'];
+                            });
 
                         return result;
                     })
@@ -208,6 +209,22 @@ module.exports = (function () {
                 .then(function (result) {
                     return result.insertId;
                 }).fail(function (err) {
+                    console.error(err);
+                    console.log(query);
+                    return err;
+                });
+        },
+
+        search: function(q) {
+
+            var query = queryHelper.search({
+                q: q,
+                table: _table,
+                fields: _searcharble
+            });
+
+            return db.makeQuery(query)
+                .fail(function (err) {
                     console.error(err);
                     console.log(query);
                     return err;
